@@ -21,12 +21,15 @@ unless ( -e $rcfile ) {
 }
 my $config = Config::General->new($rcfile);
 
+my %options;
+GetOptions( \%options, 'p|project=i' );
+
 my $pithub   = Pithub->new( $config->getall );
 my $issue_id = shift or die "Usage: $0 issue_id";
 
 my $response = $pithub->issues->get( issue_id => $issue_id );
 unless ( $response->success ) {
-    croak( "Error fetchin issue '$issue_id': " . $response->raw_content );
+    croak( "Error fetching issue '$issue_id': " . $response->raw_content );
 }
 my $issue = decode_json( $response->response->content );
 
