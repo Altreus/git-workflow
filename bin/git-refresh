@@ -8,7 +8,13 @@ prog=$(basename $0)
 branch=$(git rev-parse --abbrev-ref HEAD)
 need_to_stash=$(git status --porcelain -uno)
 
-if [ "$branch" == "master" ]; then
+base="${branch%%/}";
+
+if [ -z "$base" ]; then
+    base='master'
+fi
+
+if [ "$branch" == "$base" ]; then
   git fetch -p
   if git rev-parse '@{u}' >/dev/null 2>&1; then
     if [[ $need_to_stash ]]; then
@@ -25,12 +31,12 @@ else
   if [[ $need_to_stash ]]; then
     git stash save "stashed by $prog (on branch $branch)"
   fi
-  git checkout master
+  git checkout "$base"
   git fetch -p
   git pull --ff-only
   git checkout $branch
 
-  if [[ $(git rebase master) ]]; then
+  if [[ $(git rebase "$base") ]]; then
     if [[ $need_to_stash ]]; then
       git stash pop
     fi
@@ -44,9 +50,10 @@ else
 fi
 
 # Regardless of the branch you are on, this code:
+# - figures out base branch from current branch, or uses master
 # - stashes changes (if any)
-# - checks out master
+# - checks out $base
 # - Do a fast-forward merge
-# - checks out your branch (if it's not master)
-# - rebases onto master (if branch is not master)
+# - checks out your branch (if it's not $base)
+# - rebases onto $base (if branch is not $base)
 # - pops changes from stash, if any
