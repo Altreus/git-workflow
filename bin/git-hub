@@ -64,7 +64,7 @@ else {
 
 sub branches_for ($issue_id) {
     my @branches = qx(git branch -a);
-    my @matches  = map { trim($_) } grep { /\b$issue_id\b/ } @branches;
+    my @matches  = map { trim($_) } grep { m~\b$issue_id(?:$|/)~ } @branches;
     return @matches;
 }
 
