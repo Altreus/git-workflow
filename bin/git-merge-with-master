@@ -17,18 +17,25 @@ do
             prompt=0
             ;;
         *)
-            branch=$arg
+            branch="$arg"
             ;;
     esac
 done
 
-if [ "$branch" == "master" ]; then
+# Rewriting as Perl script in 3... 2...
+base="${branch%%/}"
+
+if [ -z "$base" ]; then
+    base="master"
+fi
+
+if [ "$branch" == "$base" ]; then
     echo ERROR: You must checkout the branch to be merged or supply branch as argument
     exit 1
 fi
 
 if [ $prompt == 1 ]; then
-    echo You are going to merge branch $branch with remote master.
+    echo You are going to merge branch $branch with remote $base.
     echo -n "If this is what you want to do please confirm with [Yes]: "
     read response
     if [ "X$response" != "XYes" ]; then
@@ -38,20 +45,20 @@ if [ $prompt == 1 ]; then
 fi
 
 ## pull latest master
-git checkout master
+git checkout $base
 git fetch --prune
-git merge --ff-only origin/master
+git merge --ff-only origin/$base
 
 ## rebase branch against master and push back to origin
-git rebase master $branch
+git rebase -p $base $branch
 git push --force-with-lease origin $branch
 
 ## merge branch onto master and push
-git checkout master
+git checkout $base
 git merge --no-ff $branch
 
 ## push new master
-git push origin master
+git push origin $base
 
 echo
 echo Branch successfully merged and pushed.
