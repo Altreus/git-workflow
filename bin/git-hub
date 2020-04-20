@@ -8,6 +8,7 @@ no warnings 'experimental::signatures';
 
 use Carp 'croak';
 use FindBin;
+use Getopt::Long;
 
 use autodie ':all';
 use Config::General;
@@ -22,7 +23,7 @@ unless ( -e $rcfile ) {
 my $config = Config::General->new($rcfile);
 
 my %options;
-GetOptions( \%options, 'p|project=i' );
+GetOptions( \%options, 'parent|p=i' );
 
 my $pithub   = Pithub->new( $config->getall );
 my $issue_id = shift or die "Usage: $0 issue_id";
@@ -39,27 +40,44 @@ if ( my $closed_at = $issue->{closed_at} ) {
     exit 1;
 }
 
-if ( my @branches = branches_for($issue_id) ) {
-    if ( @branches > 1 ) {
-        say STDERR "You must check out your branch manually.";
-        say STDERR
-"The following branches may match your issue id ($issue_id):\n\n @branches";
-        exit 2;
-    }
-    chomp( my $branch = $branches[0] );
-    say $branch;
+checkout_branch(find_or_create_branch($issue_id, $options{parent}));
+
+sub checkout_branch ($branch) {
     my @command = ( 'git', 'checkout', $branch );
     say "@command";
     system(@command);
     say "$branch checked out";
 }
-else {
-    my $title   = $issue->{title};
-    my $branch  = make_slug("$title-$issue_id");
-    my @command = ( 'git', 'checkout', '-b', $branch );
-    say "@command";
-    system(@command);
-    say "$branch checked out";
+
+sub find_or_create_branch ($issue_id, $parent_id=undef) {
+    my $parent_branch;
+    if ($parent_id) {
+        $parent_branch = create_or_checkout_branch($parent_id);
+    }
+
+    if ( my @branches = branches_for($issue_id) ) {
+        # Going to leave the exit in here for now but it should probably be
+        # factored out soon.
+        if ( @branches > 1 ) {
+            say STDERR "You must check out your branch manually.";
+            say STDERR
+    "The following branches may match your issue id ($issue_id):\n\n @branches";
+            exit 2;
+        }
+        chomp( my $branch = $branches[0] );
+        return $branch;
+    }
+    else {
+        my $title   = $issue->{title};
+        my $branch  = make_slug("$title-$issue_id");
+        if ($parent_branch) {
+            $branch = "$parent_branch/$branch";
+        }
+        my @command = ( 'git', 'branch', $branch );
+        say "@command";
+        system(@command);
+        return $branch;
+    }
 }
 
 sub branches_for ($issue_id) {
